@@ -47,12 +47,12 @@ def read_matrix(file_name):
     print("Matrix size: ", n)
     return matrix
 
-
+# записть результата перемножения матриц в файл result_matrix.txt
 def write_matrix(mtx, file_name='./resources/result_matrix.txt'):
     mtx_file = open(file_name, 'w')
     mtx_file.write(list_to_str(mtx))
 
-
+# генератор новой матрицы
 def matrix_gen(n, m):
     matrix = []
     for i in range(n):
@@ -61,7 +61,7 @@ def matrix_gen(n, m):
             matrix[i].append(random.randint(1, 100))
     return matrix
 
-
+# создание новой матрицы
 def start_matrix():
     n = int(input("Number of lines : "))
     m = int(input("Number of columns : "))
@@ -77,6 +77,8 @@ def start_matrix():
 matrix1 = list()
 matrix2 = list()
 
+# старт программы 1 - загрузить данные матрицы из файла (matrix 1 и 2 из resourses)
+# 2 - Создание новой матрицы 
 while True:
     command_input = input("****** MAIN ******\n1. Download matrix from a file\n2. Create new data for a matrix\n-> ")
     if (command_input.strip() == '1'):
@@ -117,6 +119,8 @@ print(res_matrix)
 str_res = list_to_str(res_matrix)
 
 print("********\n", str_res)
+
+
 
 write_matrix(res_matrix, './resources/result_matrix.txt')
 
