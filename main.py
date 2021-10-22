@@ -1,16 +1,20 @@
+from random import randint
+from multiprocessing import Pool
 
+def save_matrix(a):
+    with open('matrix.txt', 'a') as file:
+        file.write(str(a) + " ")
+def matrix_mnoj(x, y):
+    result = sum(i*k for i, k in zip(x, y))
+    return result
 
-def element(index, A, B):
-    i, j = index
-    res = 0
-    # get a middle dimension
-    N = len(A[0]) or len(B)
-    for k in range(N):
-        res += A[i][k] * B[k][j]
-    return res
+matrix1 = [[randint(0, 15) for i in range(3)] for i in range(3)]
+matrix2 = [[randint(0, 10) for i in range(3)] for i in range(3)]
+print(f'1st: {matrix1}')
+print(f'2nd: {matrix2}')
+if __name__=='__main__':
+    with Pool(4) as pool:
+        matrix = pool.starmap(matrix_mnoj, [(i, k) for i in matrix1 for k in zip(*matrix2)])
+        print(matrix, 'result.txt')
+        save_matrix(matrix)
 
-
-matrix1 = [[1, 2], [3, 4]]
-matrix2 = [[2, 0], [1, 2]]
-
-print(element((1, 0), matrix1, matrix2))
