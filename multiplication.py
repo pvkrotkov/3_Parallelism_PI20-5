@@ -1,113 +1,118 @@
-from multiprocessing import Process, Manager, Queue
+from multiprocessing import Process, Pool, Queue, Lock, Value
+import random
+import time
 
+def element(index, matrix1, matrix2):
+    """получаем элемент произведения строки и столбца"""
+    i, j = index
+    res = 0
+    # get a middle dimension
+    N = len(matrix1[0]) or len(matrix2)
+    for k in range(N):
+        res += matrix1[i][k] * matrix2[k][j]
+    return res
 
-# функция принимающая кол-во строк и столбцов, и списки в виде матриц и делает их перемножение
-def element(i: int, j: int, A: list, B: list, answer: Queue):
-    answer.put((sum(A[i][k] * B[k][j] for k in range(len(A[0]) or len(B))), [i, j]))
+def read_matrix(filename):
+    """читаем матрицу из файла в список списков с типом элементов float"""
+    try:
+        with open (filename, "r") as matrix_file:
+            matrix = []
+            for line in matrix_file.readlines():
+                matrix.append([float(el) for el in line.split()])
+    except:
+        matrix = []
+    return matrix
 
+def write_matrix(filename, matrix):
+    """Записываем матрицу в файл"""
 
-# Начало работы программы
-if __name__ == '__main__':
-    manager = Manager()
+    with open (filename, "w") as matrix_file:
+        matrix = "\r".join([' '.join(row) for row in [[str(element) for element in row] for row in matrix]])
+        matrix_file.write(matrix)
+    return 
 
-    # Как выглядит матрица в файле matrix1.txt:
+def write_element(filename, index, value, lock):
+    """Записываем отдельный элемент по индексу в файл матрицы"""
+    i, j = index
+    with lock:
+        matrix = read_matrix(filename)
+        if len(matrix) <= i:
+            for _ in range(i - len(matrix) + 1):
+                matrix.append([])
+        if len(matrix[i]) <= j:
+            for _ in range(j - len(matrix[i]) + 1):
+                matrix[i].append(0)
+        matrix[i][j] = value
+        write_matrix(filename, matrix)
+    return 
+        
+def write_immediately(args):
+    """вычисление текущего элемента и его немедленная запись в файл"""
+    filename, index, matrix1, matrix2 = args
+    value = element(index, matrix1, matrix2)
+    write_element(filename, index, value, lock)
+    return value
 
-    # [[3, 2, 6],
-    # [2, 7, 3]]
-
-    # Пишем в первом input 3
-    # Пишем во втором input 2
-    # То есть мы даем программе понять что матрица у нас
-    # А 2 на 3 2-строки 3-столбца
-
-    n1 = int(input('Введите число элементов в строке -> '))
-    n2 = int(input('Введите число строк в матрице -> '))
-
-    matrix1 = [[[] for i in range(n1)] for j in range(n2)]
-    matrix1 = [[0 for i in range(n1)] for j in range(n2)]
-
-    # [[1, 5],
-    # [1, 2],
-    # [7, 1]]
-
-    # Пишем в первом input 2
-    # Пишем во втором input 3
-
-    # То есть мы даем программе понять что матрица у нас
-    # B 3 на 2 3-строки 2-столбца
-
-    n1 = int(input('Введите число элементов в строке -> '))
-    n2 = int(input('Введите число строк в матрице -> '))
-
-    matrix2 = [[[] for i in range(n1)] for j in range(n2)]
-    matrix2 = [[0 for i in range(n1)] for j in range(n2)]
-
-    matrix_l1 = []
-    matrix_l2 = []
-    k = 0
-    kk = 0
-
-    # открытие файлов matrix1.txt и matrix2.txt и их чтение
-
-    with open('matrix1.txt', 'r') as m1:
-        for line in m1.read():
-            if line != '[' and line != ']' and line != ',' and line != '\n' and line != ' ':
-                matrix_l1 += line
-
-    with open('matrix2.txt', 'r') as m2:
-        for line in m2.read():
-            if line != '[' and line != ']' and line != ',' and line != '\n' and line != ' ':
-                matrix_l2 += line
-
+def create_arguments(filename, matrix1, matrix2):
+    """создание аргументов для pool'а процессов"""
+    indexes = []
     for i in range(len(matrix1)):
-        for j in range(len(matrix1[0])):
-            try:
-                matrix1[i][j] = int(matrix_l1[k])
-                k += 1
-            except:
-                if k <= len(matrix_l1):
-                    i = k
-                    k += 1
-
-    print(matrix1)
-
-    for i in range(len(matrix2)):
         for j in range(len(matrix2[0])):
-            try:
-                matrix2[i][j] = int(matrix_l2[kk])
-                kk += 1
-            except:
-                if kk <= len(matrix_l2):
-                    i = kk
-                    kk += 1
+            indexes.append([filename, (i, j), matrix1, matrix2])
+    return indexes
 
-    print(matrix2)
+def generate_matrix(size, start, end):
+    """генерация случайной целочисленной матрицы"""
+    return [[random.randint(start, end) for _ in range(size)] for _ in range(size)]
 
-    matrix3 = [[0 for _ in range(len(matrix2[0]))] for _ in range(len(matrix2[0]))]
+def queue_creating(que, matrix_size = 2, start = 0, end = 5):
+    while True:
+        matrix = generate_matrix(matrix_size, start, end)
+        filename = f"matrix{time.time()}.txt"
+        write_matrix(filename, matrix)
+        que.put(filename)
+        time.sleep(5)
+    
+def init(l):
+    global lock
+    lock = l
 
-    processes = list()
-    answer = manager.Queue()
+def matrix_multiplier(que, run):
+    while True:
+        if run.value:
+            matrix1 = read_matrix(que.get())
+            matrix2 = read_matrix(que.get())
+            filename = f"mul_matrix{time.time()}.txt"
+            indexes = create_arguments(filename, matrix1, matrix2)
 
-    for i in range(len(matrix3)):
-        for j in range(len(matrix3[i])):
-            p = Process(target=element, args=(i, j, matrix1, matrix2, answer,))
-            processes.append(p)
+            l = Lock()
+            proc_count = len(matrix1) + len(matrix2[0])
+            pool = Pool(processes = proc_count, initializer = init,  initargs=(l,))
 
-    for p in processes:
-        p.start()
+            pool.map(write_immediately, indexes)
+            pool.close()
+            pool.join()
 
-    for p in processes:
-        p.join()
+            que.put(filename)
 
-    for i in range(len(matrix3)):
-        for j in range(len(matrix3[i])):
-            mt_l, mt_k = answer.get()
-            matrix3[mt_k[0]][mt_k[1]] = mt_l
 
-    # запись перемножения матрицы в файл result.txt
-    with open('result.txt', 'w') as file:
-        '''Программа выводит сначала первые две матрицы полученные из файлов'''
-        '''Потом выводится результат перемножения матриц и соответсвенно записывает результат'''
-        file.write(str(matrix3))
+if __name__ == '__main__':
+    matrix_q = Queue()
+    run = Value('i', 1)
+    queue_process =  Process(target=queue_creating, args=[matrix_q])
+    queue_process.start()
+    multiplier_process = Process(target=matrix_multiplier, args=[matrix_q, run])
+    multiplier_process.start()
+    proc_list = [queue_process, multiplier_process]
 
-    print(matrix3)
+    print("stop - stop multiplication\nexit - to shutdown")
+    while True:
+        cmd = input()
+        if cmd == "stop":
+            run.value = not run.value
+        elif cmd == "exit":
+            for proc in proc_list:
+                proc.terminate()
+            break
+        else:
+            pass
